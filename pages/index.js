@@ -18,6 +18,8 @@ export default function Home() {
   const [fetchOrder, setFetchOrder] = useState(1);
   const [waitTime, setWaitTime] = useState(2);
 
+  // TODO: Use context?
+
   const onStart = () => {
     setFetchOrder(1);
   };
