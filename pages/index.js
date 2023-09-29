@@ -1,37 +1,58 @@
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import Layout from "../components/Layout";
 import Header from "../components/Header";
 import { convertToTitleCase } from "../libs/strings";
 import Image from "next/image";
 import { getRandomPokemon } from "../libs/pokemon";
+import { PokeContextProvider, usePokeContext } from "../context/poke-context";
 
-const wait = (s, cb = () => {}) =>
-  new Promise((resolve) =>
+const wait = (s, cb = () => {}) => {
+  return new Promise((resolve) =>
     setTimeout(() => {
       cb();
       resolve();
     }, s * 1000)
   );
+};
 
 export default function Home() {
-  const [fetchOrder, setFetchOrder] = useState(1);
-  const [waitTime, setWaitTime] = useState(2);
+  const [amount, setAmount] = useState(3);
+  return (
+    <PokeContextProvider>
+      <Layout>
+        <Header>Pokemon</Header>
 
-  // TODO: Use context?
+        <Setting amount={amount} setAmount={setAmount} />
+
+        <div className="grid grid-cols-3 gap-2 px-3 pt-1 pb-2">
+          {Array.from({ length: amount }).map((_, i) => (
+            <Item key={i} fetchOrder={i + 1} />
+          ))}
+        </div>
+      </Layout>
+    </PokeContextProvider>
+  );
+}
+
+const Setting = ({ amount, setAmount }) => {
+  const { waitTime, setWaitTime, setCurrentOrder, setRestart } =
+    usePokeContext();
 
   const onStart = () => {
-    setFetchOrder(1);
+    setCurrentOrder(1);
+  };
+
+  const onReset = () => {
+    setRestart(true);
   };
 
   return (
-    <Layout>
-      <Header>Pokemon</Header>
-
-      <div className="flex gap-1 px-3 py-2 items-center">
-        <label htmlFor="waitTime">Wait time</label>
+    <div className="flex items-center justify-between px-3 py-2">
+      <div className="flex gap-1 items-center">
+        <label htmlFor="waitTime">Wait time (s)</label>
         <input
           type="number"
+          id="waitTime"
           value={waitTime}
           onChange={(e) => setWaitTime(e.target.valueAsNumber)}
           className="border border-1 rounded-sm px-1 py-0.5 w-16"
@@ -39,57 +60,97 @@ export default function Home() {
 
         <button
           className="px-3 bg-blue-400 rounded-sm text-white hover:bg-blue-600 py-0.5"
-          onChange={onStart}
+          onClick={onStart}
+          id="start"
         >
-          Start
+          Run
+        </button>
+        <button
+          className="px-3 bg-blue-400 rounded-sm text-white hover:bg-blue-600 py-0.5"
+          onClick={onReset}
+          id="reset"
+        >
+          Reset
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 px-3 pt-1 pb-2">
-        <Item
-          fetchOrder={1}
-          setFetchOrder={setFetchOrder}
-          currentOrder={fetchOrder}
-          waitTime={waitTime}
-        />
-        <Item
-          fetchOrder={2}
-          setFetchOrder={setFetchOrder}
-          currentOrder={fetchOrder}
-          waitTime={waitTime}
-        />
-        <Item
-          fetchOrder={3}
-          setFetchOrder={setFetchOrder}
-          currentOrder={fetchOrder}
-          waitTime={waitTime}
+      <div>
+        <label htmlFor="amount">Amount</label>
+        <input
+          name="amount"
+          id="amount"
+          type="number"
+          value={amount}
+          onChange={(e) => setAmount(e.target.valueAsNumber)}
+          className="border border-1 rounded-sm px-1 py-0.5 w-16 ml-1"
         />
       </div>
-    </Layout>
+    </div>
   );
-}
+};
 
-const Item = ({ fetchOrder, setFetchOrder, currentOrder, waitTime }) => {
-  const [pokemon, setPokemon] = useState({ name: "", img: "", stats: [] });
-  console.log(fetchOrder);
+const defaultPokemon = {
+  name: "",
+  img: "",
+  stats: [],
+};
+
+const Item = ({ fetchOrder }) => {
+  const [pokemon, setPokemon] = useState(defaultPokemon);
+  const [doFetch, setDoFetch] = useState(true);
+  const { currentOrder, waitTime, restart, setCurrentOrder } = usePokeContext();
 
   useEffect(() => {
     const fetchPokemon = async () => {
       const data = await getRandomPokemon();
       setPokemon(data);
       await wait(waitTime, () => {
-        setFetchOrder((prev) => prev + 1);
-        console.log("finish", fetchOrder);
+        setCurrentOrder((prev) => prev + 1);
       });
     };
-    if (fetchOrder === currentOrder) {
+
+    if (fetchOrder === currentOrder && doFetch) {
       fetchPokemon();
     }
   }, [fetchOrder, currentOrder]);
 
+  useEffect(() => {
+    const resetBtn = document.getElementById("reset");
+
+    const reset = () => {
+      setPokemon(defaultPokemon);
+      setCurrentOrder(-1);
+      setDoFetch(false);
+    };
+
+    if (resetBtn) {
+      resetBtn.addEventListener("click", reset);
+
+      return () => {
+        resetBtn.removeEventListener("click", reset);
+      };
+    }
+  }, [restart]);
+
+  useEffect(() => {
+    const startBtn = document.getElementById("start");
+
+    const start = () => {
+      setDoFetch(true);
+    };
+
+    if (startBtn) {
+      startBtn.addEventListener("click", start);
+
+      return () => {
+        startBtn.removeEventListener("click", start);
+      };
+    }
+  }, [restart]);
+
   return (
-    <div className="bg-white border border-1 min-h-[120px]">
-      {pokemon.name ? (
+    <div className="bg-white border border-1 min-h-[200px]">
+      {pokemon?.name ? (
         <>
           <div className="text-sm px-1 text-center font-bold bg-gray-100">
             {convertToTitleCase(pokemon.name)}
@@ -128,7 +189,7 @@ const Item = ({ fetchOrder, setFetchOrder, currentOrder, waitTime }) => {
           </div>
         </>
       ) : (
-        <div className="text-gray-300 pl-2">Loading...</div>
+        <div className="text-gray-300 pl-2">{doFetch ? "Loading..." : ""}</div>
       )}
     </div>
   );
