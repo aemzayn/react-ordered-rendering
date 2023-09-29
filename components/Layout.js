@@ -13,7 +13,7 @@ export default function Layout({ children, meta }) {
         <title>{defaultMeta.title}</title>
         <meta name="description" content={defaultMeta.description} />
       </Head>
-      <main className="bg-blue-50 w-full">{children}</main>
+      <main className="w-full">{children}</main>
     </div>
   );
 }
